@@ -1,5 +1,4 @@
 const express = require('express');
-const pdf = require('html-pdf');
 const { body, param, validationResult } = require('express-validator');
 const { Product, Invoice } = require('../models/schemas');
 
@@ -28,7 +27,7 @@ router.post('/products',
 
     try {
       const { name, price } = req.body;
-      await Product.create({ timeStamp: getFormattedDate(), name, price: price || 0 });
+      await Product.create({ timeStamp: Date.now(), name, price: price || 0 });
       res.status(201).json({ error: false, message: 'Product added successfully.' });
     } catch (err) {
       console.error(err);
@@ -82,7 +81,7 @@ router.put('/products/:id',
       const { name, price } = req.body;
       const product = await Product.findByIdAndUpdate(
         req.params.id,
-        { name, price, timeStamp: getFormattedDate() },
+        { name, price, timeStamp: Date.now() },
         { new: true }
       );
 
@@ -289,82 +288,88 @@ router.delete('/invoices/:id',
 );
 
 // Route for generating PDF
-router.get('/generate-pdf/:id', 
-  param('id').isMongoId().withMessage('Invalid invoice ID'),
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ error: true, errors: errors.array() });
-    }
+// router.get('/generate-pdf/:id', 
+//   param('id').isMongoId().withMessage('Invalid invoice ID'),
+//   async (req, res) => {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({ error: true, errors: errors.array() });
+//     }
 
-    try {
-      const invoice = await Invoice.findById(req.params.id).populate('products.productId');
-      if (!invoice) {
-        return res.status(404).json({ error: true, message: 'Invoice not found' });
-      }
+//     try {
+//       const invoice = await Invoice.findById(req.params.id).populate('products.productId');
+//       if (!invoice) {
+//         return res.status(404).json({ error: true, message: 'Invoice not found' });
+//       }
 
-      const html = `
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; }
-              h1 { text-align: center; }
-              table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              th { background-color: #f2f2f2; }
-            </style>
-          </head>
-          <body>
-            <h1>Invoice</h1>
-            <p><strong>Customer:</strong> ${invoice.customer}</p>
-            <p><strong>Tanggal Terima:</strong> ${invoice.tanggalTerima}</p>
-            <p><strong>Tanggal Selesai:</strong> ${invoice.tanggalSelesai}</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Product Name</th>
-                  <th>Quantity</th>
-                  <th>Price</th>
-                  <th>Total Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${invoice.products.map((product, index) => `
-                  <tr>
-                    <td>${index + 1}</td>
-                    <td>${product.productId.name}</td>
-                    <td>${product.quantity}</td>
-                    <td>Rp ${product.productId.price}</td>
-                    <td>Rp ${product.productId.price * product.quantity}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-            <p><strong>Sub Total:</strong> Rp ${invoice.grandPrice}</p>
-            <p><strong>DP:</strong> Rp ${invoice.downPayment}</p>
-            <p><strong>Total:</strong> Rp ${invoice.grandPrice - invoice.downPayment}</p>
-          </body>
-        </html>
-      `;
+//       const html = `
+//         <html>
+//           <head>
+//             <style>
+//               body { font-family: Arial, sans-serif; }
+//               h1 { text-align: center; }
+//               table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+//               th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+//               th { background-color: #f2f2f2; }
+//             </style>
+//           </head>
+//           <body>
+//             <h1>Invoice</h1>
+//             <p><strong>Customer:</strong> ${invoice.customer}</p>
+//             <p><strong>Tanggal Terima:</strong> ${invoice.tanggalTerima}</p>
+//             <p><strong>Tanggal Selesai:</strong> ${invoice.tanggalSelesai}</p>
+//             <table>
+//               <thead>
+//                 <tr>
+//                   <th>No</th>
+//                   <th>Product Name</th>
+//                   <th>Quantity</th>
+//                   <th>Price</th>
+//                   <th>Total Price</th>
+//                 </tr>
+//               </thead>
+//               <tbody>
+//                 ${invoice.products.map((product, index) => `
+//                   <tr>
+//                     <td>${index + 1}</td>
+//                     <td>${product.productId.name}</td>
+//                     <td>${product.quantity}</td>
+//                     <td>Rp ${product.productId.price}</td>
+//                     <td>Rp ${product.productId.price * product.quantity}</td>
+//                   </tr>
+//                 `).join('')}
+//               </tbody>
+//             </table>
+//             <p><strong>Sub Total:</strong> Rp ${invoice.grandPrice}</p>
+//             <p><strong>DP:</strong> Rp ${invoice.downPayment}</p>
+//             <p><strong>Total:</strong> Rp ${invoice.grandPrice - invoice.downPayment}</p>
+//           </body>
+//         </html>
+//       `;
 
-      pdf.create(html).toBuffer((err, buffer) => {
-        if (err) {
-          return res.status(500).json({ error: true, message: 'Error generating PDF', err });
-        }
+//       // Gunakan Puppeteer untuk merender HTML menjadi PDF
+//     const browser = await puppeteer.launch();
+//     const page = await browser.newPage();
+//     await page.setContent(html);
+    
+//     // Set output PDF path atau bisa langsung stream ke client
+//     const pdfBuffer = await page.pdf({ format: 'A4' });
 
-        res.set({
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="invoice-${invoice._id}.pdf"`,
-        });
+//     // Tutup browser
+//     await browser.close();
 
-        res.send(buffer);
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: true, message: 'Error generating PDF', error });
-    }
-  }
-);
+//     // Kirim PDF sebagai response
+//     res.set({
+//       'Content-Type': 'application/pdf',
+//       'Content-Disposition': `attachment; filename="invoice-${invoice._id}.pdf"`,
+//     });
+
+//     res.send(pdfBuffer);
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ error: true, message: 'Error generating PDF', error });
+//     }
+//   }
+// );
 
 module.exports = router;
