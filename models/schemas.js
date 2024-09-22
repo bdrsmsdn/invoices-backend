@@ -25,6 +25,12 @@ const invoiceSchema = new mongoose.Schema(
     customer: {
       type: String,
     },
+    tanggalTerima:{
+      type: Date
+    },
+    tanggalSelesai:{
+      type: Date
+    },
     downPayment:{
       type: Number
     },
