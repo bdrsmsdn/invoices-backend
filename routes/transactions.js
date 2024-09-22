@@ -135,8 +135,6 @@ router.post('/invoices',
       const { customer, tanggalTerima, tanggalSelesai, downPayment, products } = req.body;
       const newInvoice = new Invoice({
         customer,
-        tanggalTerima,
-        tanggalSelesai,
         downPayment,
         products: products.map(product => ({
           productId: product.productId,
